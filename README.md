@@ -164,12 +164,6 @@ review and statewide scaling.
 - CoStar is a **commercial, licensed dataset**. It is **not** open or public,
   and **no raw CoStar data is included in this repository**. Reproducing the
   enrichment step requires the user's own CoStar subscription.
-- **Redistribution caveat:** CoStar-derived fields in any shared output — most
-  directly per-building `year_built` — are governed by CoStar's license terms.
-  Review those terms before publicly redistributing inventory files, and
-  consider dropping or aggregating CoStar-derived columns in any public release.
-  (The cleaned CSV currently carries `year_built`; confirm it is permissible to
-  share before posting it.)
 
 ---
 
