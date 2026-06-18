@@ -43,12 +43,6 @@ Six counties: Los Angeles, Orange, Riverside, San Bernardino, Ventura, and
 Imperial. Footprint threshold: **>= 50,000 ft²** (4,645.15 m²). Temporal frame:
 **2003-2023**.
 
-> San Joaquin County (SJCOG / Central Valley) is **not** part of the SCAG region
-> and is excluded from all analyses; commented scaffolding remains in the code
-> for traceability only. Imperial County is included in the SCAG boundary; it
-> carries minimal warehousing (33 facilities) and is reported but does not drive
-> any regional conclusion.
-
 ## Two population counts (read this before citing numbers)
 
 The notebook uses two related but distinct counts. They are not
