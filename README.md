@@ -1,5 +1,5 @@
 # Southern California Warehouse Inventory
-### Stage 1 — Geospatial and Operational Inventory of Warehouses 
+### Stage 1 — Geospatial and Operational Inventory of Warehouses
 
 Geospatial and operational inventory of large warehouse and distribution
 facilities in Southern California, and the spatial characterization of their
@@ -10,6 +10,7 @@ in Southern California* (Caltrans Agreement 65A1345; National Center for
 Sustainable Transportation).
 
 - **PI:** Miguel Jaller, Civil & Environmental Engineering, UC Davis
+- **Lead Researcher:** Maria C. Valencia-Cardenas, Graduate Student Researcher
 - **Institution:** Institute of Transportation Studies, UC Davis (ITS-Davis)
 - **Status:** Research code — draft deliverable
 ---
@@ -17,18 +18,20 @@ Sustainable Transportation).
 ## What this notebook does
 
 `Warehouse_Inventory_Caltrans.ipynb` builds a reproducible facility inventory by
-fusing four open building-footprint sources, classifying buildings, validating
-against the Census County Business Patterns, and characterizing the spatial
-pattern of the result.
+fusing open building-footprint sources, classifying buildings, enriching them
+with land-use, property, and employment data, validating against the Census
+County Business Patterns, and characterizing the spatial pattern of the result.
 
-1. **Study area** — TIGER/2018 county boundaries for the seven study counties.
-2. **Footprint sources** — USDA NAIP (roof detection via Google Earth Engine),
-   Microsoft US Building Footprints, Overture Maps, OpenStreetMap.
+1. **Study area** — TIGER/2018 county boundaries for the six study counties.
+2. **Footprint sources** — three vector footprint sources (Microsoft US Building
+   Footprints, Overture Maps, OpenStreetMap) plus USDA NAIP imagery for roof
+   detection via Google Earth Engine.
 3. **Fusion & classification** — deduplication (IoU >= 0.3), multi-signal
    semantic classification (`confirmed` / `candidate` / `excluded`), an
    OSM-derived land-use spatial filter, and a functional subtype typology.
-4. **Enrichment** — SCAG land-use layers, CoStar property records (construction
-   year), and LEHD LODES employment (NAICS 48-49, 2003-2023).
+4. **Enrichment** — SCAG land-use layers (public), CoStar property records
+   (construction year; **proprietary/licensed — see Data Sources & Licensing**),
+   and LEHD LODES employment (NAICS 48-49, 2003-2023; public).
 5. **Validation** — ZIP-level comparison against Census CBP (NAICS 492 + 493).
 6. **Spatial characterization** — Nearest Neighbor Index, quadrat counts,
    Ripley's K/L, weighted KDE, centrographic analysis (weighted mean center +
@@ -36,18 +39,24 @@ pattern of the result.
 
 ## Study area
 
-Seven counties: Los Angeles, Orange, Riverside, San Bernardino, Ventura,
-Imperial, and **San Joaquin**. Footprint threshold: **>= 50,000 ft²**
-(4,645.15 m²). Temporal frame: **2003-2023**.
+Six counties: Los Angeles, Orange, Riverside, San Bernardino, Ventura, and
+Imperial. Footprint threshold: **>= 50,000 ft²** (4,645.15 m²). Temporal frame:
+**2003-2023**.
 
-## Three population counts (read this before citing numbers)
+> San Joaquin County (SJCOG / Central Valley) is **not** part of the SCAG region
+> and is excluded from all analyses; commented scaffolding remains in the code
+> for traceability only. Imperial County is included in the SCAG boundary; it
+> carries minimal warehousing (33 facilities) and is reported but does not drive
+> any regional conclusion.
 
-The notebook uses three related but distinct counts. They are not
+## Two population counts (read this before citing numbers)
+
+The notebook uses two related but distinct counts. They are not
 interchangeable:
 
 | Count | Meaning | Used for |
 |-------|---------|----------|
-| **Final inventory** | all included facilities (confirmed + high-confidence candidates, after manual review) | headline facility count, maps |
+| **Final inventory** | all included facilities (confirmed + high-confidence candidates, after manual review) | headline facility count, maps, all spatial analyses |
 | **Temporal subset** | facilities with a reliable construction / operation-start year (after removing the LODES8 vintage artifact and LODES7 truncation) | year-by-year trajectory, anomaly detection |
 
 > **Important:** all *spatial* analyses (NNI, quadrat, Ripley's K, centrographic)
@@ -64,32 +73,38 @@ interchangeable:
 ```
 warehouse-inventory/
 │
-├── Inventory_documented.ipynb   # Main analysis notebook
+├── Warehouse_Inventory_Caltrans.ipynb   # Main analysis notebook
 │
-├── data/                        # Downloaded raw data (not tracked in git)
+├── data/                        # Downloaded raw data (NOT tracked in git)
 │   ├── California.geojson.zip   # Microsoft building footprints (cached)
 │   ├── la_buildings.geojson     # Overture buildings — Los Angeles
 │   ├── or_buildings.geojson     # Overture buildings — Orange
 │   ├── ri_buildings.geojson     # Overture buildings — Riverside
 │   ├── sb_buildings.geojson     # Overture buildings — San Bernardino
-│   └── ve_buildings.geojson     # Overture buildings — Ventura
+│   ├── ve_buildings.geojson     # Overture buildings — Ventura
+│   └── imp_buildings.geojson     # Overture buildings — Imperial
 │
-├── Shapefiles/                  # Land use layers (not tracked in git)
+├── Shapefiles/                  # OSM-derived land-use layers (NOT tracked in git)
 │   ├── LA_osm_lulc_training.shp
 │   ├── OR_osm_lulc_training.shp
 │   ├── RI_osm_lulc_training.shp
 │   ├── SB_osm_lulc_training.shp
-│   └── VE_osm_lulc_training.shp
+│   ├── VE_osm_lulc_training.shp
+│   └── IMP_osm_lulc_training.shp
 │
-├── outputs/                     # Classified inventory files
-│   └── warehouse_inventory_lu_filtered.gpkg
+├── outputs/                                   # Inventory outputs
+│   ├── warehouse_final_inventory.gpkg         # final inventory (attributes + geometry)
+│   ├── warehouse_final_with_years.gpkg        # + LODES employment panel & onset fields
+│   ├── warehouse_inventory_clean.csv          # cleaned, shareable attribute table
+│   └── data_dictionary.md                     # column definitions for the CSV
 │
 ├── environment.yml              # Conda environment specification
 └── README.md                    # This file
 ```
 
-> **Note:** Raw data files (`.geojson`, `.zip`, `.shp`) are excluded from version control
-> via `.gitignore` due to size. See the **Data Sources** section for download instructions.
+> **Note:** Raw data files (`.geojson`, `.zip`, `.shp`) and **all CoStar data**
+> are excluded from version control. See **Data Sources & Licensing** for access
+> and redistribution terms.
 
 ---
 
@@ -99,10 +114,10 @@ The pipeline has four main stages:
 
 ```
 Step 1: Define Study Area
-        └─ TIGER/2018 county boundaries via Google Earth Engine
+        └─ TIGER/2018 county boundaries (six counties) via Google Earth Engine
 
-Step 2: Collect Building Footprints (four sources)
-        ├─ USDA NAIP (roof detection via GEE)
+Step 2: Collect Building Footprints
+        ├─ USDA NAIP imagery (roof detection via GEE — imagery, not polygons)
         ├─ Overture Maps (rich semantic schema)
         ├─ Microsoft US Building Footprints (geometric accuracy)
         └─ OpenStreetMap (named facilities, semantic tags)
@@ -133,21 +148,34 @@ The `confidence_note` column records the exact rule that triggered each label
 
 ---
 
-## Data Sources
+## Data Sources & Licensing
 
-| Source | Description | Access |
-|--------|-------------|--------|
-| [USDA NAIP](https://developers.google.com/earth-engine/datasets/catalog/USDA_NAIP_DOQQ) | ~0.6 m aerial imagery (RGBN) | Google Earth Engine |
-| [Overture Maps Buildings](https://docs.overturemaps.org/guides/buildings/) | Consolidated footprints + semantics | `overturemaps` CLI |
-| [Microsoft Building Footprints](https://github.com/microsoft/USBuildingFootprints) | Computer vision roof polygons | Azure Blob (~5 GB) |
-| [OpenStreetMap](https://wiki.openstreetmap.org/wiki/Key:building) | Named facilities, building tags | `osmnx` Python package |
-| [TIGER/2018 Counties](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) | County boundaries | Google Earth Engine |
+| Source | Description | Access / License |
+|--------|-------------|------------------|
+| [USDA NAIP](https://developers.google.com/earth-engine/datasets/catalog/USDA_NAIP_DOQQ) | ~0.6 m aerial imagery (RGBN); roof detection | Public — Google Earth Engine |
+| [Overture Maps Buildings](https://docs.overturemaps.org/guides/buildings/) | Consolidated footprints + semantics | Open (CDLA-Permissive / ODbL) — `overturemaps` CLI |
+| [Microsoft Building Footprints](https://github.com/microsoft/USBuildingFootprints) | Computer-vision roof polygons | Open (ODbL) — Azure Blob (~5 GB) |
+| [OpenStreetMap](https://wiki.openstreetmap.org/wiki/Key:building) | Named facilities, building tags | Open (ODbL) — `osmnx` |
+| [TIGER/2018 Counties](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) | County boundaries | Public domain — Google Earth Engine |
+| [LEHD LODES](https://lehd.ces.census.gov/data/) | Workplace employment, NAICS 48-49 (CNS08), 2003-2023 | Public domain — Census LEHD |
+| SCAG land use | Parcel-level land-use layers | Public — SCAG |
+| **CoStar** | Commercial property records (construction year, RBA, property type) | **PROPRIETARY — paid subscription; NOT public, NOT redistributed** |
 
-All sources are:
-- Legally permissible for research use ✅
-- Publicly accessible and reproducible ✅
-- Scientifically defensible for peer review ✅
-- Suitable for statewide scaling ✅
+The open footprint, boundary, employment, and validation sources above are
+publicly accessible, reproducible, and scientifically defensible for peer
+review and statewide scaling.
+
+**CoStar is the exception and requires explicit handling:**
+
+- CoStar is a **commercial, licensed dataset**. It is **not** open or public,
+  and **no raw CoStar data is included in this repository**. Reproducing the
+  enrichment step requires the user's own CoStar subscription.
+- **Redistribution caveat:** CoStar-derived fields in any shared output — most
+  directly per-building `year_built` — are governed by CoStar's license terms.
+  Review those terms before publicly redistributing inventory files, and
+  consider dropping or aggregating CoStar-derived columns in any public release.
+  (The cleaned CSV currently carries `year_built`; confirm it is permissible to
+  share before posting it.)
 
 ---
 
@@ -194,7 +222,13 @@ tiles = download_overture_tiled("data/la", bbox=bboxes["la"], nx=4, ny=4)
 la_overture_raw = merge_overture_tiles(tiles)
 ```
 
-### 5. Set Your Path
+### 5. Provide CoStar Data (optional, licensed)
+
+The enrichment step expects CoStar exports under `data/`. These are **not**
+provided; supply your own under a valid CoStar license. The notebook runs
+without them, but `year_built` and CoStar-derived attributes will be empty.
+
+### 6. Set Your Path
 
 In the notebook Setup cell, update:
 
@@ -202,7 +236,7 @@ In the notebook Setup cell, update:
 path = '/your/local/project/path/'
 ```
 
-### 6. Run the Notebook
+### 7. Run the Notebook
 
 Execute cells sequentially. The Results section at the bottom runs the full pipeline.
 
@@ -210,23 +244,26 @@ Execute cells sequentially. The Results section at the bottom runs the full pipe
 
 ## Output
 
-The final output is a GeoPackage: `warehouse_inventory_lu_filtered.gpkg`
+The primary outputs are two GeoPackages and a cleaned CSV (see Repository
+Structure). Column definitions for the shareable CSV are in
+[`data_dictionary.md`](outputs/data_dictionary.md).
 
-**Key columns:**
+**Selected columns:**
 
 | Column | Type | Description |
 |--------|------|-------------|
+| `facility_id` | str | Stable surrogate primary key (complete) |
 | `geometry` | Polygon | Building footprint (EPSG:4326) |
 | `source` | str | Data source: `osm`, `overture`, or `ms` |
 | `label` | str | `confirmed`, `candidate`, or `excluded` |
-| `confidence_note` | str | Rule that triggered the label |
-| `primary_name` | str | Facility name (from Overture/OSM) |
-| `needs_review` | bool | `True` if label = `candidate` |
+| `subclass` | str | Functional subtype (FI-IND, U-DF, R-DC, R-RL, ambiguous) |
+| `confidence_score` / `confidence_tier` | num / str | Rule-based confidence (0–100; binned) |
 | `area_ft2` | float | Building footprint area in ft² |
-| `compactness` | float | Shape metric (0–1; circles = 1.0) |
-| `rectangularity` | float | Shape metric (0–1; rectangles = 1.0) |
-| `elongation` | float | Shape metric (≥1; cross-docks > 2.0) |
-| `lu_class` | str | Land use class from LULC shapefile |
+| `scag_land_use_class` | str | SCAG parcel land-use class |
+| `ops_start_year` | int | Resolved start year (canonical; see `year_source`) |
+| `year_built` | int | **CoStar** construction year (licensed; ~34% coverage) |
+| `lodes_onset_year` | int | First LODES logistics-employment year |
+| `temporal_use` | str | Onset validity (`usable` / `lodes8_artifact` / `lodes7_truncation` / `no_onset`) |
 
 ### QGIS Quick-Start Filters
 
@@ -234,9 +271,8 @@ The final output is a GeoPackage: `warehouse_inventory_lu_filtered.gpkg`
 Confirmed warehouses:              "label" = 'confirmed'
 Candidates needing review:         "needs_review" = 1
 Excluded buildings:                "label" = 'excluded'
-Confirmed DCs in exclusion zones:  "confidence_note" LIKE '%lu_conflict_kept%'
-LU-confirmed warehouses:           "confidence_note" LIKE 'lu_confirm%'
-Name-confirmed warehouses:         "confidence_note" LIKE 'name_keyword%'
+Names flagged for review:          "name_review_flag" = 1
+Temporally usable onset:           "temporal_use" = 'usable'
 ```
 
 ---
@@ -276,15 +312,32 @@ dependencies:
 
 ## Known Limitations
 
-- **Overture/Microsoft footprints** lack per-feature acquisition dates, so temporal
-  attribution (2021 vs. 2022 vs. 2023 presence) requires cross-referencing with
-  NAIP imagery or county orthos.
-- **OSM coverage** is sparse in some industrial zones; the name-matching classifier
-  partially compensates but cannot cover all unnamed facilities.
-- **NAIP roof detection** captures all large impervious surfaces, not just warehouses.
-  Semantic classification in Step 3 filters these but may have residual false positives.
-- **County boundary edges** in the LULC shapefiles may create small unmatched zones.
-  The overlap fallback in `assign_lu_to_buildings()` handles most of these cases.
+- **Footprint dating.** Overture/Microsoft footprints lack per-feature
+  acquisition dates, so temporal attribution relies on CoStar and LODES rather
+  than the footprints themselves.
+- **OSM coverage** is sparse in some industrial zones; the name-matching
+  classifier partially compensates but cannot cover all unnamed facilities.
+- **NAIP roof detection** captures all large impervious surfaces, not just
+  warehouses. Semantic classification in Step 3 filters these but may leave
+  residual false positives.
+- **Classification precision.** A name-based check flags ~74 facilities with
+  non-warehouse names (civic / retail / residential) for manual review
+  (`name_review_flag`); these may be genuine false positives or POI names that
+  bled onto a real warehouse footprint via the buffered OSM-point join. A
+  precision audit is recommended before citing the headline count as exact.
+- **CoStar coverage.** CoStar covers ~34% of facilities and is subject to
+  geocoding-precision artifacts; apparent coverage gaps at tight match radii
+  collapse at wider radii and are handled by radius-sensitivity testing.
+- **LODES vintage artifact.** The LODES7→LODES8 (2020) Census-block vintage
+  change produces a spurious 2020 onset cluster (~2,030 facilities), excluded
+  from temporal analysis via `temporal_use` but retained in the static
+  inventory.
+- **Temporal coverage.** Only ~56% of facilities have a reliable onset year;
+  trajectory and anomaly results rest on this datable subset, not the full
+  inventory.
+- **RF outputs provisional.** `is_warehouse` / `warehouse_prob` reflect a
+  random-forest model with a known feature-set mismatch and should be treated as
+  provisional pending a retrain.
 
 ---
 
@@ -293,9 +346,10 @@ dependencies:
 If you use this code or methodology in your work, please cite:
 
 ```
-Valencia-CArdenas, Maria C., Jaller, Miguel. (2025). Empirical Assessment of Land 
-Use and Other Policy Impacts on Warehousing Location Choices in Southern California.
-2024-2025 NCST Caltrans Research Grants. GitHub: https://github.com/mariacvc/warehouse-inventory
+Valencia-Cardenas, Maria C., & Jaller, Miguel. (2025). Empirical Assessment of
+Land Use and Other Policy Impacts on Warehousing Location Choices in Southern
+California. 2024-2025 NCST / Caltrans Research Grants.
+GitHub: https://github.com/mariacvc/warehouse-inventory
 ```
 
 ---
@@ -307,3 +361,11 @@ For questions about this project, please open a GitHub Issue or contact the rese
 ---
 
 ## License
+
+**Code** in this repository is released under the [choose a license — e.g., MIT]
+license.
+
+**Data are not covered by the code license and are not redistributed here.**
+Open inputs (NAIP, Overture, Microsoft, OSM, TIGER, LODES, SCAG) remain under
+their respective licenses; **CoStar data and CoStar-derived fields are
+proprietary** and may not be redistributed without a valid CoStar license.
