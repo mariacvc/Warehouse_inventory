@@ -1,31 +1,61 @@
 # Southern California Warehouse Inventory
 ### Stage 1 — Geospatial and Operational Inventory of Warehouses 
 
-**Project:** Southern California Warehouse Inventory and Compliance Profiling - Caltrans 65A1345
-**Institutions:** Institute of Transportation Studies - UC Davis (UCD) 
-**Regulatory context:** South Coast Air Quality Management District (South Coast AQMD) 
+Geospatial and operational inventory of large warehouse and distribution
+facilities in Southern California, and the spatial characterization of their
+distribution over space and time. This repository implements **Task 2 —
+Characterization of freight facility locations** of the project *Empirical
+Assessment of Land Use and Other Policy Impacts on Warehousing Location Choices
+in Southern California* (Caltrans Agreement 65A1345; National Center for
+Sustainable Transportation).
+
+- **PI:** Miguel Jaller, Civil & Environmental Engineering, UC Davis
+- **Institution:** Institute of Transportation Studies, UC Davis (ITS-Davis)
+- **Status:** Research code — draft deliverable
 ---
 
-## Overview
+## What this notebook does
 
-This notebook constructs a comprehensive **geospatial and operational inventory** of warehouses ≥ 50,000 ft² 
+`Warehouse_Inventory_Caltrans.ipynb` builds a reproducible facility inventory by
+fusing four open building-footprint sources, classifying buildings, validating
+against the Census County Business Patterns, and characterizing the spatial
+pattern of the result.
 
-**Research Question:** What are the warehouses and distribution centers' location patterns over time and space?
----
+1. **Study area** — TIGER/2018 county boundaries for the seven study counties.
+2. **Footprint sources** — USDA NAIP (roof detection via Google Earth Engine),
+   Microsoft US Building Footprints, Overture Maps, OpenStreetMap.
+3. **Fusion & classification** — deduplication (IoU >= 0.3), multi-signal
+   semantic classification (`confirmed` / `candidate` / `excluded`), an
+   OSM-derived land-use spatial filter, and a functional subtype typology.
+4. **Enrichment** — SCAG land-use layers, CoStar property records (construction
+   year), and LEHD LODES employment (NAICS 48-49, 2003-2023).
+5. **Validation** — ZIP-level comparison against Census CBP (NAICS 492 + 493).
+6. **Spatial characterization** — Nearest Neighbor Index, quadrat counts,
+   Ripley's K/L, weighted KDE, centrographic analysis (weighted mean center +
+   standard deviational ellipse), and spatial/temporal anomaly detection.
 
-## Study Area
+## Study area
 
-| County | Abbr. | FIPS |
-|--------|-------|------|
-| Los Angeles | LA | 06037 |
-| Orange | OR | 06059 |
-| Riverside | RI | 06065 |
-| San Bernardino | SB | 06071 |
-| Ventura | VE | 06111 |
+Seven counties: Los Angeles, Orange, Riverside, San Bernardino, Ventura,
+Imperial, and **San Joaquin**. Footprint threshold: **>= 50,000 ft²**
+(4,645.15 m²). Temporal frame: **2003-2023**.
 
-- **Timeframe:** 2021–2023 (annual)
-- **Size threshold:** ≥ 50,000 ft²  
-- **CRS (analysis):** EPSG:3310 — California Albers (metric); exported as EPSG:4326
+## Three population counts (read this before citing numbers)
+
+The notebook uses three related but distinct counts. They are not
+interchangeable:
+
+| Count | Meaning | Used for |
+|-------|---------|----------|
+| **Final inventory** | all included facilities (confirmed + high-confidence candidates, after manual review) | headline facility count, maps |
+| **Temporal subset** | facilities with a reliable construction / operation-start year (after removing the LODES8 vintage artifact and LODES7 truncation) | year-by-year trajectory, anomaly detection |
+
+> **Important:** all *spatial* analyses (NNI, quadrat, Ripley's K, centrographic)
+> are run on the **final inventory** population so the spatial results and the
+> headline count describe the same set. See `spatial_pattern_additions.py`,
+> CELL C. The temporal subset is necessarily smaller because only datable
+> buildings can be placed in time — this is a coverage limitation, not an
+> inconsistency.
 
 ---
 
